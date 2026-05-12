@@ -70,3 +70,9 @@ Testing/
 
 # Docs
 /docs/
+
+# Build output
+x64/
+
+# Claude Code worktrees
+.claude/
