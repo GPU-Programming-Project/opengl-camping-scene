@@ -18,12 +18,12 @@ enum Camera_Movement {
 };
 
 // Default camera values
-// ī�޶� ���� ������ !! �����ϸ� ����ϱ�~~
+// camera 관련 값들
 const float YAW         = -90.0f;
 const float PITCH       =  0.0f;
-const float SPEED       =  4.5f;
-const float SENSITIVITY =  0.5f;
-const float ZOOM        =  45.0f;
+const float SPEED       =  8.5f;
+const float SENSITIVITY =  0.6f;
+const float ZOOM        =  80.0f;
 
 
 // An abstract camera class that processes input and calculates the corresponding Euler Angles, Vectors and Matrices for use in OpenGL

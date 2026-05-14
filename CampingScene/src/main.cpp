@@ -18,7 +18,7 @@ void processInput(GLFWwindow* window);
 const unsigned int SCR_WIDTH  = 1280;
 const unsigned int SCR_HEIGHT = 720;
 
-Camera camera(glm::vec3(0.0f, 15.0f, -45.0f), glm::vec3(0, 1, 0), 90.0f, -10.0f);
+Camera camera(glm::vec3(0.0f, 10.0f, -25.0f), glm::vec3(0, 1, 0), 90.0f, -20.0f);
 float lastX = SCR_WIDTH  / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
