@@ -12,11 +12,13 @@ enum Camera_Movement {
     FORWARD,
     BACKWARD,
     LEFT,
-    RIGHT
+    RIGHT,
+    UP_MOVE,
+    DOWN_MOVE
 };
 
 // Default camera values
-// д╚╦ч╤С ╟Э╥ц ╪Ёа╓╣И !! а╤а╓го╦Г ╩Г©Кго╠Б~~
+// д╚О©╫ч╤О©╫ О©╫О©╫О©╫О©╫ О©╫О©╫О©╫О©╫О©╫О©╫ !! О©╫О©╫О©╫О©╫О©╫о╦О©╫ О©╫О©╫О©╫О©╫о╠О©╫~~
 const float YAW         = -90.0f;
 const float PITCH       =  0.0f;
 const float SPEED       =  4.5f;
@@ -79,6 +81,11 @@ public:
             Position -= Right * velocity;
         if (direction == RIGHT)
             Position += Right * velocity;
+		// Л°└Л∙└К·≤К║° Л²╢К▐≥М∙≤К┼■ Й╦╟К┼╔ Л╤■Й╟─ М∙≤Й╦╟ (feat/camera-movement-up-down)
+        if (direction == UP_MOVE)
+            Position += WorldUp * velocity;
+        if (direction == DOWN_MOVE)
+            Position -= WorldUp * velocity;
     }
 
     // processes input received from a mouse input system. Expects the offset value in both the x and y direction.
