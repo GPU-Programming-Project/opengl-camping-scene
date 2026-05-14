@@ -68,9 +68,6 @@ vcpkg_installed/
 Testing/
 .cache/
 
-# Docs
-/docs/
-
 # Build output
 x64/
 
