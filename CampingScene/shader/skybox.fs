@@ -7,5 +7,5 @@ uniform samplerCube skybox;
 
 void main()
 {
-    FragColor = texture(skybox, TexCoords);
+    FragColor = texture(skybox, TexCoords) * 4.0; // 반짝이는 느낌을 추가하기
 }
