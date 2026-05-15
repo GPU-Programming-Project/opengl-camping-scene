@@ -86,6 +86,8 @@
   <ItemGroup>
     <None Include="shader\scene.fs" />
     <None Include="shader\scene.vs" />
+    <None Include="shader\skybox.fs" />
+    <None Include="shader\skybox.vs" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\camera.h" />
