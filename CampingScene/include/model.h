@@ -66,18 +66,25 @@ private:
         processNode(scene->mRootNode, scene, glm::mat4(1.0f));
     }
 
+    // glb 파일의 계층 구조를 재귀적으로 순회하면서 mesh를 수집하는 함수
     void processNode(aiNode* node, const aiScene* scene, glm::mat4 parentTransform)
     {
         // accumulate this node's transform
         glm::mat4 nodeTransform = parentTransform * aiMat4ToGlm(node->mTransformation);
 
+        // 노드의 이름을 읽은 다음, nodeName에 저장한 다음, processMesh를 호출할 때 같이 넘긴다.
         for (unsigned int i = 0; i < node->mNumMeshes; i++)
-            meshes.push_back(processMesh(scene->mMeshes[node->mMeshes[i]], scene, nodeTransform));
+        {
+            std::string nodeName = node->mName.C_Str();
+            meshes.push_back(processMesh(scene->mMeshes[node->mMeshes[i]], scene, nodeTransform, nodeName));
+            std::cout << "Node: " << node->mName.C_Str() << std::endl; // 프로젝트를 실행할 때 노드의 이름을 출력
+    }   
         for (unsigned int i = 0; i < node->mNumChildren; i++)
             processNode(node->mChildren[i], scene, nodeTransform);
     }
 
-    Mesh processMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 nodeTransform)
+    // 실제 mesh 데이터를 가공해서 mesh 객체를 만드는 함수. 이름을 받을 수 있게 수정
+    Mesh processMesh(aiMesh* mesh, const aiScene* scene, glm::mat4 nodeTransform, const std::string& nodeName)
     {
         std::vector<Vertex>       vertices;
         std::vector<unsigned int> indices;
@@ -130,7 +137,7 @@ private:
             textures.insert(textures.end(), spec.begin(), spec.end());
         }
 
-        return Mesh(vertices, indices, textures, baseColor);
+        return Mesh(vertices, indices, textures, baseColor, nodeName);
     }
 
     std::vector<Texture> loadMaterialTextures(aiMaterial* mat, aiTextureType type, const std::string& typeName)

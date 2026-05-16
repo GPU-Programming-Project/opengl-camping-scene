@@ -162,7 +162,23 @@ int main()
         sceneShader.setVec3("lightColor", glm::vec3(1.0f, 0.85f, 0.5f));
         sceneShader.setVec3("viewPos",    camera.Position);
 
-        campingModel.Draw(sceneShader);
+
+        // 기존의 코드
+        // 내부적으로 모든 mesh를 동일한 shader로 일괄처리 하였음
+        // campingModel.Draw(sceneShader);
+
+        // 변경된 코드
+        // mesh.name으로 특정 오브젝트를 골라 다른 처리를 추가할 수 있다.
+        for (auto& mesh : campingModel.meshes) {
+            // TODO: 콘솔에서 노드 이름 확인 후 조건 추가
+            // 예시:
+            // if (mesh.name == "확인된_노드_이름") {
+            //     mesh.Draw(otherShader);
+            // } else {
+            //     mesh.Draw(sceneShader);
+            // }
+            mesh.Draw(sceneShader);
+        }
 
         // Skybox 렌더링 (씬 오브젝트 다 그린 후 맨 마지막)
         glDepthFunc(GL_LEQUAL);
