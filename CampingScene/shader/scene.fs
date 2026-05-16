@@ -37,19 +37,24 @@ void main()
     }
 
     // Ambient
-    vec3 ambient = 0.55 * baseColor;
+    vec3 ambient = 0.15 * baseColor;
+
+    // Attenuation
+    float distance    = length(lightPos - FragPos);
+    float attenuation = 1.0 / (1.0 + 0.007 * distance + 0.0002 * distance * distance);
 
     // Diffuse
     vec3 norm     = normalize(Normal);
     vec3 lightDir = normalize(lightPos - FragPos);
     float diff    = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse  = diff * lightColor * baseColor;
+    vec3 diffuse  = diff * lightColor * baseColor * attenuation;
 
     // Specular
     vec3 viewDir    = normalize(viewPos - FragPos);
     vec3 reflectDir = reflect(-lightDir, norm);
     float spec      = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
-    vec3 specular   = 0.08 * spec * lightColor;
+    vec3 specular   = 0.08 * spec * lightColor * attenuation;
+
 
     if (isEmissive) {
         FragColor = vec4(baseColor, alpha);
