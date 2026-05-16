@@ -25,13 +25,13 @@ public:
     std::vector<unsigned int> indices;
     std::vector<Texture>      textures;
     glm::vec4                 baseColor;
-    // mesh가 어떤 노드에서 왔는지 이름을 저장하는 필드
     std::string               name;
+    glm::vec3                 origin;
 
     Mesh(std::vector<Vertex> v, std::vector<unsigned int> i,
-        // 이름을 받아서 필드에 저장
-         std::vector<Texture> t, glm::vec4 bc = glm::vec4(1.0f), std::string n = "")
-        : vertices(v), indices(i), textures(t), baseColor(bc), name(n)
+         std::vector<Texture> t, glm::vec4 bc = glm::vec4(1.0f),
+         std::string n = "", glm::vec3 o = glm::vec3(0.0f))
+        : vertices(v), indices(i), textures(t), baseColor(bc), name(n), origin(o)
     {
         setupMesh();
     }

@@ -163,20 +163,16 @@ int main()
         sceneShader.setVec3("viewPos",    camera.Position);
 
 
-        // 기존의 코드
-        // 내부적으로 모든 mesh를 동일한 shader로 일괄처리 하였음
-        // campingModel.Draw(sceneShader);
-
-        // 변경된 코드
-        // mesh.name으로 특정 오브젝트를 골라 다른 처리를 추가할 수 있다.
+        // 캠프파이어 메시의 origin을 lightPos로 사용
         for (auto& mesh : campingModel.meshes) {
-            // TODO: 콘솔에서 노드 이름 확인 후 조건 추가
-            // 예시:
-            // if (mesh.name == "확인된_노드_이름") {
-            //     mesh.Draw(otherShader);
-            // } else {
-            //     mesh.Draw(sceneShader);
-            // }
+            if (mesh.name == "Mball.018_0") {
+                lightPos = mesh.origin;
+                break;
+            }
+        }
+        sceneShader.setVec3("lightPos", lightPos);
+
+        for (auto& mesh : campingModel.meshes) {
             mesh.Draw(sceneShader);
         }
 
