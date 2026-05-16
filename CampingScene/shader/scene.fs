@@ -18,6 +18,7 @@ uniform vec3 lightColor;
 uniform vec3 viewPos;
 uniform bool  isEmissive;
 uniform float time;
+uniform bool  gammaEnabled;
 
 void main()
 {
@@ -57,10 +58,17 @@ void main()
     vec3 specular   = 0.08 * spec * lightColor * attenuation;
 
 
+    vec3 result;
     if (isEmissive) {
         float flicker = 0.8 + 0.2 * sin(time * 1.5);
-        FragColor = vec4(baseColor * flicker, alpha);
+        result = baseColor * flicker;
     } else {
-        FragColor = vec4(ambient + diffuse + specular, alpha);
+        result = ambient + diffuse + specular;
     }
+
+    if (gammaEnabled) {
+        result = pow(result, vec3(1.0 / 1.2));
+    }
+
+    FragColor = vec4(result, alpha);
 }

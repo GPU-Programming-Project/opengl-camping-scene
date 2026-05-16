@@ -24,7 +24,9 @@ const unsigned int SCR_HEIGHT = 720;
 Camera camera(glm::vec3(0.0f, 10.0f, -25.0f), glm::vec3(0, 1, 0), 90.0f, -20.0f);
 float lastX = SCR_WIDTH  / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
-bool firstMouse = true;
+bool firstMouse   = true;
+bool gammaEnabled = false;
+bool spacePressed = false;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -161,7 +163,8 @@ int main()
         sceneShader.setVec3("lightPos",   lightPos);
         sceneShader.setVec3("lightColor", glm::vec3(1.0f, 0.85f, 0.5f));
         sceneShader.setVec3("viewPos",    camera.Position);
-        sceneShader.setFloat("time",      (float)glfwGetTime());
+        sceneShader.setFloat("time",        (float)glfwGetTime());
+        sceneShader.setBool("gammaEnabled", gammaEnabled);
 
 
         // 캠프파이어 메시의 origin을 lightPos로 사용
@@ -220,6 +223,15 @@ void processInput(GLFWwindow* window)
         camera.ProcessKeyboard(UP_MOVE, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
         camera.ProcessKeyboard(DOWN_MOVE, deltaTime);
+
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+        if (!spacePressed) {
+            gammaEnabled = !gammaEnabled;
+            spacePressed = true;
+        }
+    } else {
+        spacePressed = false;
+    }
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
