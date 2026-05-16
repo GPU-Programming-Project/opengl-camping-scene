@@ -16,7 +16,8 @@ uniform vec4 baseColorFactor;
 uniform vec3 lightPos;
 uniform vec3 lightColor;
 uniform vec3 viewPos;
-uniform bool isEmissive;
+uniform bool  isEmissive;
+uniform float time;
 
 void main()
 {
@@ -57,7 +58,8 @@ void main()
 
 
     if (isEmissive) {
-        FragColor = vec4(baseColor, alpha);
+        float flicker = 0.7 + 0.3 * sin(time * 1.5);
+        FragColor = vec4(baseColor * flicker, alpha);
     } else {
         FragColor = vec4(ambient + diffuse + specular, alpha);
     }

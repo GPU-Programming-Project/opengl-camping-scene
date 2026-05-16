@@ -161,6 +161,7 @@ int main()
         sceneShader.setVec3("lightPos",   lightPos);
         sceneShader.setVec3("lightColor", glm::vec3(1.0f, 0.85f, 0.5f));
         sceneShader.setVec3("viewPos",    camera.Position);
+        sceneShader.setFloat("time",      (float)glfwGetTime());
 
 
         // 캠프파이어 메시의 origin을 lightPos로 사용
