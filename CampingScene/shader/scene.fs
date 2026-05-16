@@ -58,7 +58,7 @@ void main()
 
 
     if (isEmissive) {
-        float flicker = 0.7 + 0.3 * sin(time * 1.5);
+        float flicker = 0.8 + 0.2 * sin(time * 1.5);
         FragColor = vec4(baseColor * flicker, alpha);
     } else {
         FragColor = vec4(ambient + diffuse + specular, alpha);
