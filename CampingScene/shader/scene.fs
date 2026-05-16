@@ -16,6 +16,7 @@ uniform vec4 baseColorFactor;
 uniform vec3 lightPos;
 uniform vec3 lightColor;
 uniform vec3 viewPos;
+uniform bool isEmissive;
 
 void main()
 {
@@ -50,5 +51,9 @@ void main()
     float spec      = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);
     vec3 specular   = 0.08 * spec * lightColor;
 
-    FragColor = vec4(ambient + diffuse + specular, alpha);
+    if (isEmissive) {
+        FragColor = vec4(baseColor, alpha);
+    } else {
+        FragColor = vec4(ambient + diffuse + specular, alpha);
+    }
 }

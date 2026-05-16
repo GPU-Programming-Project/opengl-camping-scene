@@ -173,6 +173,11 @@ int main()
         sceneShader.setVec3("lightPos", lightPos);
 
         for (auto& mesh : campingModel.meshes) {
+            if (mesh.name == "Mball.018_0") {
+                sceneShader.setBool("isEmissive", true);
+            } else {
+                sceneShader.setBool("isEmissive", false);
+            }
             mesh.Draw(sceneShader);
         }
 
