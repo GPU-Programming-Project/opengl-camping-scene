@@ -29,7 +29,7 @@ bool gammaEnabled  = false;
 bool spacePressed  = false;
 bool flashlightOn  = false;
 bool fKeyPressed   = false;
-bool blurEnabled   = false;
+bool bloomEnabled  = false;
 bool bKeyPressed   = false;
 
 float deltaTime = 0.0f;
@@ -65,9 +65,11 @@ int main()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    Shader sceneShader("shader/scene.vs", "shader/scene.fs");
-    Shader skyboxShader("shader/skybox.vs", "shader/skybox.fs");
-    Shader postShader("shader/postprocess.vs", "shader/postprocess.fs");
+    Shader sceneShader  ("shader/scene.vs",       "shader/scene.fs");
+    Shader skyboxShader ("shader/skybox.vs",      "shader/skybox.fs");
+    Shader brightShader ("shader/postprocess.vs", "shader/bloom_bright.fs");
+    Shader blurShader   ("shader/postprocess.vs", "shader/bloom_blur.fs");
+    Shader combineShader("shader/postprocess.vs", "shader/bloom_combine.fs");
 
     // GLB 모델 로드
     Model campingModel("resources/models/low_poly_forest_campfire_updated.glb");
@@ -185,8 +187,22 @@ int main()
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
-    postShader.use();
-    postShader.setInt("screenTexture", 0);
+    // FBO2: bloom용 밝기 추출 + blur 결과 저장
+    unsigned int fboBloom;
+    glGenFramebuffers(1, &fboBloom);
+    glBindFramebuffer(GL_FRAMEBUFFER, fboBloom);
+    unsigned int texBloomBuffer;
+    glGenTextures(1, &texBloomBuffer);
+    glBindTexture(GL_TEXTURE_2D, texBloomBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texBloomBuffer, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    combineShader.use();
+    combineShader.setInt("sceneTexture", 0);
+    combineShader.setInt("bloomTexture", 1);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -196,7 +212,7 @@ int main()
 
         processInput(window);
 
-        // ── Pass 1: FBO에 씬 렌더링 ──────────────────────────
+        // 1. FBO에 씬 렌더링 
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glEnable(GL_DEPTH_TEST);
         glClearColor(0.05f, 0.08f, 0.12f, 1.0f);
@@ -267,17 +283,31 @@ int main()
         glBindVertexArray(0);
         glDepthFunc(GL_LESS);
 
-        // ── Pass 2: 화면 quad에 post-processing 적용 ─────────
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        // 2. 밝은 픽셀 뽑아서 / Gaussian blur에 적용 / FBO2에 저장하기
+        glBindFramebuffer(GL_FRAMEBUFFER, fboBloom);
         glDisable(GL_DEPTH_TEST);
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-
-        postShader.use();
-        postShader.setBool("blurEnabled", blurEnabled);
+        // 2-1. 밝기 임계값 뽑기
+        brightShader.use();
         glBindVertexArray(quadVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texColorBuffer);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        // 2-2. 추출된 밝은 부분에 Gaussian blur 적용
+        blurShader.use();
+        glBindTexture(GL_TEXTURE_2D, texBloomBuffer);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        // 3. 원본 씬 + bloom 합성하여 화면 출력하기
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        combineShader.use();
+        combineShader.setBool("bloomEnabled", bloomEnabled);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texColorBuffer);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, texBloomBuffer);
+        glBindVertexArray(quadVAO);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
         glfwSwapBuffers(window);
@@ -324,11 +354,11 @@ void processInput(GLFWwindow* window)
         fKeyPressed = false;
     }
 
-	// 키보드 B 인식에 따른 blur 효과 토글!
+    // 키보드 B 인식에 따른 bloom 효과 토글!
     if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
         if (!bKeyPressed) {
-            blurEnabled = !blurEnabled;
-            bKeyPressed = true;
+            bloomEnabled = !bloomEnabled;
+            bKeyPressed  = true;
         }
     } else {
         bKeyPressed = false;
