@@ -21,6 +21,13 @@ uniform float time;
 uniform bool  gammaEnabled;
 uniform float meshAlpha;
 
+uniform bool  flashlightOn;
+uniform vec3  flashlightPos;
+uniform vec3  flashlightDir;
+uniform float flashlightCutOff;
+uniform float flashlightOuterCutOff;
+uniform vec3  flashlightColor;
+
 void main()
 {
     vec3 baseColor;
@@ -59,12 +66,31 @@ void main()
     vec3 specular   = 0.08 * spec * lightColor * attenuation;
 
 
+    // Spot Light (손전등)
+    vec3 spotContrib = vec3(0.0);
+    if (flashlightOn) {
+        vec3  flashDir   = normalize(flashlightPos - FragPos);
+        float theta      = dot(flashDir, normalize(-flashlightDir));
+        float epsilon    = flashlightCutOff - flashlightOuterCutOff;
+        float intensity  = clamp((theta - flashlightOuterCutOff) / epsilon, 0.0, 1.0);
+
+        float flashDist  = length(flashlightPos - FragPos);
+        float flashAtt   = 1.0 / (1.0 + 0.09 * flashDist + 0.032 * flashDist * flashDist);
+
+        float flashDiff  = max(dot(norm, flashDir), 0.0);
+        vec3  flashHalf  = normalize(flashDir + viewDir);
+        float flashSpec  = pow(max(dot(norm, flashHalf), 0.0), 32.0);
+
+        spotContrib = (flashDiff * baseColor + 0.3 * flashSpec)
+                      * flashlightColor * flashAtt * intensity;
+    }
+
     vec3 result;
     if (isEmissive) {
         float flicker = 0.8 + 0.2 * sin(time * 1.5);
         result = baseColor * flicker;
     } else {
-        result = ambient + diffuse + specular;
+        result = ambient + diffuse + specular + spotContrib;
     }
 
     if (gammaEnabled) {

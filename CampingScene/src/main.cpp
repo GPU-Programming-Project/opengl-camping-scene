@@ -25,8 +25,10 @@ Camera camera(glm::vec3(0.0f, 10.0f, -25.0f), glm::vec3(0, 1, 0), 90.0f, -20.0f)
 float lastX = SCR_WIDTH  / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse   = true;
-bool gammaEnabled = false;
-bool spacePressed = false;
+bool gammaEnabled  = false;
+bool spacePressed  = false;
+bool flashlightOn  = false;
+bool fKeyPressed   = false;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -167,6 +169,12 @@ int main()
         sceneShader.setVec3("viewPos",    camera.Position);
         sceneShader.setFloat("time",        (float)glfwGetTime());
         sceneShader.setBool("gammaEnabled", gammaEnabled);
+        sceneShader.setBool("flashlightOn",          flashlightOn);
+        sceneShader.setVec3("flashlightPos",         camera.Position);
+        sceneShader.setVec3("flashlightDir",         camera.Front);
+        sceneShader.setVec3("flashlightColor",       glm::vec3(1.0f, 1.0f, 0.9f));
+        sceneShader.setFloat("flashlightCutOff",      glm::cos(glm::radians(12.5f)));
+        sceneShader.setFloat("flashlightOuterCutOff", glm::cos(glm::radians(17.5f)));
 
 
         // 캠프파이어 메시의 origin을 lightPos로 사용
@@ -242,6 +250,15 @@ void processInput(GLFWwindow* window)
         }
     } else {
         spacePressed = false;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+        if (!fKeyPressed) {
+            flashlightOn = !flashlightOn;
+            fKeyPressed  = true;
+        }
+    } else {
+        fKeyPressed = false;
     }
 }
 
