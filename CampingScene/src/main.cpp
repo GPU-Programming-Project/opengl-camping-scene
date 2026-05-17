@@ -212,8 +212,11 @@ int main()
 
         processInput(window);
 
-        // 1. FBO에 씬 렌더링 
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        // 1. 씬 렌더링 (bloom ON → FBO 경유, bloom OFF → 화면 직접 렌더링 + MSAA 적용)
+        if (bloomEnabled)
+            glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        else
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glEnable(GL_DEPTH_TEST);
         glClearColor(0.05f, 0.08f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -283,7 +286,10 @@ int main()
         glBindVertexArray(0);
         glDepthFunc(GL_LESS);
 
-        // 2. 밝은 픽셀 뽑아서 / Gaussian blur에 적용 / FBO2에 저장하기
+        // 2. bloom ON일 때만 Pass 2, 3 실행 (bloom OFF면 이미 화면에 직접 그려짐)
+        if (!bloomEnabled) { glfwSwapBuffers(window); glfwPollEvents(); continue; }
+
+        // 밝은 픽셀 뽑아서 / Gaussian blur에 적용 / FBO2에 저장하기
         glBindFramebuffer(GL_FRAMEBUFFER, fboBloom);
         glDisable(GL_DEPTH_TEST);
         glClear(GL_COLOR_BUFFER_BIT);
