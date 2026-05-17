@@ -19,6 +19,7 @@ uniform vec3 viewPos;
 uniform bool  isEmissive;
 uniform float time;
 uniform bool  gammaEnabled;
+uniform float meshAlpha;
 
 void main()
 {
@@ -70,5 +71,5 @@ void main()
         result = pow(result, vec3(1.0 / 1.2));
     }
 
-    FragColor = vec4(result, alpha);
+    FragColor = vec4(result, alpha * meshAlpha);
 }

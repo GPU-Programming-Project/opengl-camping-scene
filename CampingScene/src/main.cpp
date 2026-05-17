@@ -58,6 +58,8 @@ int main()
 
     glEnable(GL_DEPTH_TEST);
 	glEnable(GL_MULTISAMPLE); // MSAA 활성화
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     Shader sceneShader("shader/scene.vs", "shader/scene.fs");
     Shader skyboxShader("shader/skybox.vs", "shader/skybox.fs");
@@ -176,14 +178,23 @@ int main()
         }
         sceneShader.setVec3("lightPos", lightPos);
 
+        // 패스 1: 불투명 메시
         for (auto& mesh : campingModel.meshes) {
-            if (mesh.name == "Mball.018_0") {
-                sceneShader.setBool("isEmissive", true);
-            } else {
-                sceneShader.setBool("isEmissive", false);
-            }
+            if (mesh.name == "LanternGlass_0") continue;
+            sceneShader.setBool("isEmissive", mesh.name == "Mball.018_0");
+            sceneShader.setFloat("meshAlpha", 1.0f);
             mesh.Draw(sceneShader);
         }
+
+        // 패스 2: 투명 메시 (LanternGlass_0)
+        glDepthMask(GL_FALSE);
+        for (auto& mesh : campingModel.meshes) {
+            if (mesh.name != "LanternGlass_0") continue;
+            sceneShader.setBool("isEmissive", false);
+            sceneShader.setFloat("meshAlpha", 0.3f);
+            mesh.Draw(sceneShader);
+        }
+        glDepthMask(GL_TRUE);
 
         // Skybox 렌더링 (씬 오브젝트 다 그린 후 맨 마지막)
         glDepthFunc(GL_LEQUAL);
