@@ -29,6 +29,8 @@ bool gammaEnabled  = false;
 bool spacePressed  = false;
 bool flashlightOn  = false;
 bool fKeyPressed   = false;
+bool blurEnabled   = false;
+bool bKeyPressed   = false;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -65,6 +67,7 @@ int main()
 
     Shader sceneShader("shader/scene.vs", "shader/scene.fs");
     Shader skyboxShader("shader/skybox.vs", "shader/skybox.fs");
+    Shader postShader("shader/postprocess.vs", "shader/postprocess.fs");
 
     // GLB 모델 로드
     Model campingModel("resources/models/low_poly_forest_campfire_updated.glb");
@@ -141,6 +144,50 @@ int main()
     skyboxShader.use();
     skyboxShader.setInt("skybox", 0);
 
+    // --- FBO 생성 (post-processing용) ---
+    unsigned int fbo;
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    unsigned int texColorBuffer;
+    glGenTextures(1, &texColorBuffer);
+    glBindTexture(GL_TEXTURE_2D, texColorBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texColorBuffer, 0);
+
+    unsigned int rbo;
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, SCR_WIDTH, SCR_HEIGHT);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // --- 화면 전체 quad VAO ---
+    float quadVertices[] = {
+        // positions   // texCoords
+        -1.0f,  1.0f,  0.0f, 1.0f,
+        -1.0f, -1.0f,  0.0f, 0.0f,
+         1.0f, -1.0f,  1.0f, 0.0f,
+        -1.0f,  1.0f,  0.0f, 1.0f,
+         1.0f, -1.0f,  1.0f, 0.0f,
+         1.0f,  1.0f,  1.0f, 1.0f
+    };
+    unsigned int quadVAO, quadVBO;
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+    postShader.use();
+    postShader.setInt("screenTexture", 0);
+
     while (!glfwWindowShouldClose(window))
     {
         float currentFrame = static_cast<float>(glfwGetTime());
@@ -149,6 +196,9 @@ int main()
 
         processInput(window);
 
+        // ── Pass 1: FBO에 씬 렌더링 ──────────────────────────
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glEnable(GL_DEPTH_TEST);
         glClearColor(0.05f, 0.08f, 0.12f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -217,6 +267,19 @@ int main()
         glBindVertexArray(0);
         glDepthFunc(GL_LESS);
 
+        // ── Pass 2: 화면 quad에 post-processing 적용 ─────────
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDisable(GL_DEPTH_TEST);
+        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        postShader.use();
+        postShader.setBool("blurEnabled", blurEnabled);
+        glBindVertexArray(quadVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texColorBuffer);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -259,6 +322,16 @@ void processInput(GLFWwindow* window)
         }
     } else {
         fKeyPressed = false;
+    }
+
+	// 키보드 B 인식에 따른 blur 효과 토글!
+    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
+        if (!bKeyPressed) {
+            blurEnabled = !blurEnabled;
+            bKeyPressed = true;
+        }
+    } else {
+        bKeyPressed = false;
     }
 }
 
