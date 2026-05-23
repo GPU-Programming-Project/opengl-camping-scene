@@ -21,6 +21,7 @@ uniform float time;
 uniform bool  gammaEnabled;
 uniform float meshAlpha;
 
+uniform bool  isOutline;
 uniform bool  flashlightOn;
 uniform vec3  flashlightPos;
 uniform vec3  flashlightDir;
@@ -30,6 +31,12 @@ uniform vec3  flashlightColor;
 
 void main()
 {
+    // isOutline이 true면 조명 계산 없이 빨간색만 출력하고 즉시 종료
+    if (isOutline) {
+        FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+        return;
+    }
+
     vec3 baseColor;
     float alpha = 1.0;
 

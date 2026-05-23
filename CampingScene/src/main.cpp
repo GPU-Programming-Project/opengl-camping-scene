@@ -17,6 +17,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 unsigned int loadCubemap(std::vector<std::string> faces);
+int pickCenterMesh(const std::vector<Mesh>& meshes, glm::vec3 rayOrigin, glm::vec3 rayDir);
 
 const unsigned int SCR_WIDTH  = 1280;
 const unsigned int SCR_HEIGHT = 720;
@@ -64,6 +65,8 @@ int main()
 	glEnable(GL_MULTISAMPLE); // MSAA 활성화
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_STENCIL_TEST);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);  // stencil test option 설정
 
     Shader sceneShader  ("shader/scene.vs",       "shader/scene.fs");
     Shader skyboxShader ("shader/skybox.vs",      "shader/skybox.fs");
@@ -203,7 +206,9 @@ int main()
     combineShader.use();
     combineShader.setInt("sceneTexture", 0);
     combineShader.setInt("bloomTexture", 1);
-
+    // -----------------
+    // render loop
+    // -----------------
     while (!glfwWindowShouldClose(window))
     {
         float currentFrame = static_cast<float>(glfwGetTime());
@@ -212,6 +217,10 @@ int main()
 
         processInput(window);
 
+        // stencil test
+        // 카메라와 가장 가까운 오브젝트 지정
+        int targetMeshIdx = pickCenterMesh(campingModel.meshes, camera.Position, camera.Front);
+
         // 1. 씬 렌더링 (bloom ON → FBO 경유, bloom OFF → 화면 직접 렌더링 + MSAA 적용)
         if (bloomEnabled)
             glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -219,7 +228,7 @@ int main()
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glEnable(GL_DEPTH_TEST);
         glClearColor(0.05f, 0.08f, 0.12f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
         glm::mat4 projection = glm::perspective(
             glm::radians(camera.Zoom),
@@ -256,12 +265,26 @@ int main()
         sceneShader.setVec3("lightPos", lightPos);
 
         // 패스 1: 불투명 메시
-        for (auto& mesh : campingModel.meshes) {
+        sceneShader.setBool("isOutline", false);
+        for (int i = 0; i < (int)campingModel.meshes.size(); i++) {
+            auto& mesh = campingModel.meshes[i];
             if (mesh.name == "LanternGlass_0") continue;
+
+            // stencil test
+            // 윤곽선을 그릴 mesh는 stencil buffer에 기록
+            if (i == targetMeshIdx) {
+                glStencilFunc(GL_ALWAYS, 1, 0xFF);
+                glStencilMask(0xFF);
+            } else {  // 나머지 mesh는 기록하지 않음
+                glStencilFunc(GL_ALWAYS, 0, 0xFF);
+                glStencilMask(0x00);
+            }
+
             sceneShader.setBool("isEmissive", mesh.name == "Mball.018_0");
             sceneShader.setFloat("meshAlpha", 1.0f);
             mesh.Draw(sceneShader);
         }
+        glStencilMask(0xFF); 
 
         // 패스 2: 투명 메시 (LanternGlass_0)
         glDepthMask(GL_FALSE);
@@ -285,6 +308,27 @@ int main()
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
         glDepthFunc(GL_LESS);
+
+        // stencil test
+        // 아웃라인 패스
+        if (targetMeshIdx != -1) {
+            glStencilFunc(GL_NOTEQUAL, 1, 0xFF);  // buffer에 1로 기록된 부분은 그리지 않는다. 
+            glStencilMask(0x00);  // 이 단계에서는 stencil buffer를 수정하지 않는다.
+            glDisable(GL_DEPTH_TEST);  // 다른 사물을 통과하여 윤곽선이 보일 수 있도록 depth test 끔
+
+            sceneShader.use();
+            sceneShader.setMat4("projection", projection);
+            sceneShader.setMat4("view",       view);
+            sceneShader.setMat4("model",      model);
+            sceneShader.setBool ("isOutline",   true);  // vertex 팽창
+            sceneShader.setFloat("outlineSize", 0.03f);  // 팽창 정도 조절
+            campingModel.meshes[targetMeshIdx].Draw(sceneShader);  // mesh 그리기
+            sceneShader.setBool("isOutline", false);
+
+            glStencilMask(0xFF);
+            glStencilFunc(GL_ALWAYS, 0, 0xFF);  // stencil 조건 원상 복구
+            glEnable(GL_DEPTH_TEST);  // 깊이 검사 진행
+        }
 
         // 2. bloom ON일 때만 Pass 2, 3 실행 (bloom OFF면 이미 화면에 직접 그려짐)
         if (!bloomEnabled) { glfwSwapBuffers(window); glfwPollEvents(); continue; }
@@ -392,6 +436,33 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
+// 선택된 mesh의 번호를 return하는 함수
+// stencil test에 이용
+// rayOrigin = ray의 시작점, rayDir = ray의 방향
+int pickCenterMesh(const std::vector<Mesh>& meshes, glm::vec3 rayOrigin, glm::vec3 rayDir)
+{
+    int   bestIdx  = -1;
+    float bestDist = 2.5f;  // 해당 거리 안에 들어와야 유효한 오브젝트로 인식
+
+    for (int i = 0; i < (int)meshes.size(); i++) {  
+        if (meshes[i].name == "LanternGlass_0") continue;  // 투명한 물체는 제외
+
+        glm::vec3 toOrigin = meshes[i].origin - rayOrigin; // mesh에서 ray로 향하는 방향벡터
+
+        float proj = glm::dot(toOrigin, rayDir);  // mesh -> ray로 향하는 벡터와 ray의 방향을 내적
+        if (proj < 0.0f) continue;  // 0이 내적의 결과가 0보다 작으면 제외. 양수만 허용하는 이유는 카메라 뒤의 물체는 제외하기 위함
+
+        glm::vec3 closest = rayOrigin + rayDir * proj;  // ray위의 가장 가까운 점 계산. proj가 0에 가까울수록 
+        float dist = glm::length(closest - meshes[i].origin);  // 해당 점의 거리 계산
+
+        if (dist < bestDist) {  // 현재 최단 거리보다 짧으면 갱신
+            bestDist = dist;
+            bestIdx  = i;
+        }
+    }
+    return bestIdx;
 }
 
 unsigned int loadCubemap(std::vector<std::string> faces)
