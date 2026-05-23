@@ -11,6 +11,8 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <cstdlib>
+#include <cmath>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -67,15 +69,75 @@ int main()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_STENCIL_TEST);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);  // stencil test option 설정
+    glEnable(GL_PROGRAM_POINT_SIZE);             // 버텍스 셰이더에서 gl_PointSize 제어 허용
 
-    Shader sceneShader  ("shader/scene.vs",       "shader/scene.fs");
-    Shader skyboxShader ("shader/skybox.vs",      "shader/skybox.fs");
-    Shader brightShader ("shader/postprocess.vs", "shader/bloom_bright.fs");
-    Shader blurShader   ("shader/postprocess.vs", "shader/bloom_blur.fs");
-    Shader combineShader("shader/postprocess.vs", "shader/bloom_combine.fs");
+    Shader sceneShader   ("shader/scene.vs",       "shader/scene.fs");
+    Shader skyboxShader  ("shader/skybox.vs",      "shader/skybox.fs");
+    Shader brightShader  ("shader/postprocess.vs", "shader/bloom_bright.fs");
+    Shader blurShader    ("shader/postprocess.vs", "shader/bloom_blur.fs");
+    Shader combineShader ("shader/postprocess.vs", "shader/bloom_combine.fs");
+    Shader fireflyShader ("shader/firefly.vs",     "shader/firefly.fs");
 
     // GLB 모델 로드
     Model campingModel("resources/models/low_poly_forest_campfire_updated.glb");
+
+    const int FIREFLY_COUNT = 150;
+
+    // 인스턴스별 데이터 구조체
+    struct FireflyInstance {
+        glm::vec3 basePos; // 기준 위치
+        float     phase;   // 애니메이션 위상 (개체마다 다른 타이밍)
+        float     speed;   // 이동 속도 배율
+    };
+
+    // 랜덤 데이터 생성 (캠프파이어 주변 반경 3~20, 높이 1~6)
+    srand(42);
+    auto rng = [](float lo, float hi) {
+        return lo + (hi - lo) * (rand() / (float)RAND_MAX);
+    };
+    std::vector<FireflyInstance> fireflyData(FIREFLY_COUNT);
+    for (auto& f : fireflyData) {
+        float angle  = rng(0.0f, 6.28f);
+        float radius = rng(3.0f, 20.0f);
+        f.basePos = glm::vec3(std::cos(angle) * radius,
+                              rng(1.0f, 6.0f),
+                              std::sin(angle) * radius);
+        f.phase = rng(0.0f, 6.28f);
+        f.speed = rng(0.4f, 1.2f);
+    }
+
+    // VAO / VBO 생성
+    unsigned int fireflyVAO, fireflyVBO;
+    glGenVertexArrays(1, &fireflyVAO);
+    glGenBuffers(1, &fireflyVBO);
+
+    glBindVertexArray(fireflyVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, fireflyVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 FIREFLY_COUNT * sizeof(FireflyInstance),
+                 fireflyData.data(), GL_STATIC_DRAW);
+
+    // location 0: basePos (vec3, offset=0)
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,
+                          sizeof(FireflyInstance), (void*)0);
+    glVertexAttribDivisor(0, 1); // 인스턴스마다 1칸씩 전진
+
+    // location 1: phase (float, offset=12)
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE,
+                          sizeof(FireflyInstance),
+                          (void*)offsetof(FireflyInstance, phase));
+    glVertexAttribDivisor(1, 1);
+
+    // location 2: speed (float, offset=16)
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE,
+                          sizeof(FireflyInstance),
+                          (void*)offsetof(FireflyInstance, speed));
+    glVertexAttribDivisor(2, 1);
+
+    glBindVertexArray(0);
 
     // 광원 위치 (캠프파이어 위쪽)
     glm::vec3 lightPos(0.0f, 3.0f, 0.0f);
@@ -329,6 +391,18 @@ int main()
             glStencilFunc(GL_ALWAYS, 0, 0xFF);  // stencil 조건 원상 복구
             glEnable(GL_DEPTH_TEST);  // 깊이 검사 진행
         }
+
+        // 반딧불이 드로우 (instancing)
+        fireflyShader.use();
+        fireflyShader.setMat4 ("projection", projection);
+        fireflyShader.setMat4 ("view",       view);
+        fireflyShader.setFloat("time",       (float)glfwGetTime());
+        glBindVertexArray(fireflyVAO);
+        glDrawArraysInstanced(GL_POINTS, 0, 1, FIREFLY_COUNT);
+        // GL_POINTS       : 점 하나짜리 기본 도형
+        // 세 번째 인자 1  : 버텍스 1개 (위치는 셰이더 내 인스턴스 데이터로 결정)
+        // FIREFLY_COUNT   : 인스턴스 수 → 이 횟수만큼 버텍스 셰이더 실행
+        glBindVertexArray(0);
 
         // 2. bloom ON일 때만 Pass 2, 3 실행 (bloom OFF면 이미 화면에 직접 그려짐)
         if (!bloomEnabled) { glfwSwapBuffers(window); glfwPollEvents(); continue; }
