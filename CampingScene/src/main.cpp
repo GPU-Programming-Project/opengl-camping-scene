@@ -374,7 +374,7 @@ int main()
         // stencil test
         // 아웃라인 패스
         if (targetMeshIdx != -1) {
-            glStencilFunc(GL_NOTEQUAL, 1, 0xFF);  // buffer에 1로 기록된 부분은 그리지 않는다. 
+            glStencilFunc(GL_NOTEQUAL, 1, 0xFF);  // buffer에 1로 기록된 부분은 그리지 않는다.
             glStencilMask(0x00);  // 이 단계에서는 stencil buffer를 수정하지 않는다.
             glDisable(GL_DEPTH_TEST);  // 다른 사물을 통과하여 윤곽선이 보일 수 있도록 depth test 끔
 

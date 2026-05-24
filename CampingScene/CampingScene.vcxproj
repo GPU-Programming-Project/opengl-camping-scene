@@ -84,6 +84,11 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shader\bloom_blur.fs" />
+    <None Include="shader\bloom_bright.fs" />
+    <None Include="shader\bloom_combine.fs" />
+    <None Include="shader\postprocess.fs" />
+    <None Include="shader\postprocess.vs" />
     <None Include="shader\scene.fs" />
     <None Include="shader\scene.vs" />
     <None Include="shader\skybox.fs" />
