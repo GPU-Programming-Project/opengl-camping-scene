@@ -87,6 +87,8 @@
     <None Include="shader\bloom_blur.fs" />
     <None Include="shader\bloom_bright.fs" />
     <None Include="shader\bloom_combine.fs" />
+    <None Include="shader\firefly.fs" />
+    <None Include="shader\firefly.vs" />
     <None Include="shader\postprocess.fs" />
     <None Include="shader\postprocess.vs" />
     <None Include="shader\scene.fs" />
@@ -107,6 +109,14 @@
   </ItemGroup>
   <ItemGroup>
     <Library Include="libs\glfw3.lib" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="resources\skybox\back.png" />
+    <Image Include="resources\skybox\bottom.png" />
+    <Image Include="resources\skybox\front.png" />
+    <Image Include="resources\skybox\left.png" />
+    <Image Include="resources\skybox\right.png" />
+    <Image Include="resources\skybox\top.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
