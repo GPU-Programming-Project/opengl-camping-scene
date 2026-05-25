@@ -32,7 +32,7 @@ bool gammaEnabled = false;
 bool spacePressed = false;
 bool flashlightOn = false;
 bool fKeyPressed = false;
-bool bloomEnabled = false;
+bool blurEnabled = false;
 bool bKeyPressed = false;
 
 float deltaTime = 0.0f;
@@ -73,9 +73,7 @@ int main()
 
 	Shader sceneShader("shader/scene.vs", "shader/scene.fs");
 	Shader skyboxShader("shader/skybox.vs", "shader/skybox.fs");
-	Shader brightShader("shader/postprocess.vs", "shader/bloom_bright.fs");
-	Shader blurShader("shader/postprocess.vs", "shader/bloom_blur.fs");
-	Shader combineShader("shader/postprocess.vs", "shader/bloom_combine.fs");
+	Shader postShader("shader/postprocess.vs", "shader/postprocess.fs");
 	Shader fireflyShader("shader/firefly.vs", "shader/firefly.fs");
 
 	// GLB 모델 로드
@@ -252,22 +250,8 @@ int main()
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
-	// FBO2: bloom용 밝기 추출 + blur 결과 저장
-	unsigned int fboBloom;
-	glGenFramebuffers(1, &fboBloom);
-	glBindFramebuffer(GL_FRAMEBUFFER, fboBloom);
-	unsigned int texBloomBuffer;
-	glGenTextures(1, &texBloomBuffer);
-	glBindTexture(GL_TEXTURE_2D, texBloomBuffer);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texBloomBuffer, 0);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	combineShader.use();
-	combineShader.setInt("sceneTexture", 0);
-	combineShader.setInt("bloomTexture", 1);
+	postShader.use();
+	postShader.setInt("screenTexture", 0);
 	// -----------------
 	// render loop
 	// -----------------
@@ -283,11 +267,8 @@ int main()
 		// 카메라와 가장 가까운 오브젝트 지정
 		int targetMeshIdx = pickCenterMesh(campingModel.meshes, camera.Position, camera.Front);
 
-		// 1. 씬 렌더링 (bloom ON → FBO 경유, bloom OFF → 화면 직접 렌더링 + MSAA 적용)
-		if (bloomEnabled)
-			glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-		else
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		// 1. 씬 렌더링 → FBO에 저장 (post-processing용)
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 		glEnable(GL_DEPTH_TEST);
 		glClearColor(0.05f, 0.08f, 0.12f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -405,35 +386,17 @@ int main()
 		// FIREFLY_COUNT   : 인스턴스 수 → 이 횟수만큼 버텍스 셰이더 실행
 		glBindVertexArray(0);
 
-		// 2. bloom ON일 때만 Pass 2, 3 실행 (bloom OFF면 이미 화면에 직접 그려짐)
-		if (!bloomEnabled) { glfwSwapBuffers(window); glfwPollEvents(); continue; }
-
-		// 밝은 픽셀 뽑아서 / Gaussian blur에 적용 / FBO2에 저장하기
-		glBindFramebuffer(GL_FRAMEBUFFER, fboBloom);
+		// 2. FBO 텍스처를 화면에 출력 (blur ON/OFF 적용)
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glDisable(GL_DEPTH_TEST);
 		glClear(GL_COLOR_BUFFER_BIT);
-		// 2-1. 밝기 임계값 뽑기
-		brightShader.use();
-		glBindVertexArray(quadVAO);
+		postShader.use();
+		postShader.setBool("blurEnabled", blurEnabled);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texColorBuffer);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		// 2-2. 추출된 밝은 부분에 Gaussian blur 적용
-		blurShader.use();
-		glBindTexture(GL_TEXTURE_2D, texBloomBuffer);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-
-		// 3. 원본 씬 + bloom 합성하여 화면 출력하기
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glClear(GL_COLOR_BUFFER_BIT);
-		combineShader.use();
-		combineShader.setBool("bloomEnabled", bloomEnabled);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texColorBuffer);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, texBloomBuffer);
 		glBindVertexArray(quadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glEnable(GL_DEPTH_TEST);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -481,10 +444,10 @@ void processInput(GLFWwindow* window)
 		fKeyPressed = false;
 	}
 
-	// 키보드 B 인식에 따른 bloom 효과 토글!
+	// 키보드 B 인식에 따른 blur 효과 토글
 	if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS) {
 		if (!bKeyPressed) {
-			bloomEnabled = !bloomEnabled;
+			blurEnabled = !blurEnabled;
 			bKeyPressed = true;
 		}
 	}
